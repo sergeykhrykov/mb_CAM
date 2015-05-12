@@ -17,6 +17,7 @@
 #include <vtkRenderWindow.h>
 
 
+
 static double const GRADIENT_BACKGROUND_TOP[3] = { 0.4, 0.4, 0.4 };
 static double const GRADIENT_BACKGROUND_BOT[3] = { 0.6, 0.6, 0.6 };
 
@@ -41,6 +42,11 @@ Phonger::Phonger()
 
   connect(this->ui->AddSupportButton, SIGNAL(clicked()), this, SLOT(slotAddSupport()));
   connect(this->ui->SaveSupportButton, SIGNAL(clicked()), this, SLOT(slotSaveSupport()));
+
+  connect(
+      this->ui->SupportsList,
+      SIGNAL(currentItemChanged(QListWidgetItem *, QListWidgetItem *)), this,
+      SLOT(slotCurrentSupportChanged(QListWidgetItem *, QListWidgetItem *)));
 
   connect(this->ui->dsbAmbCoeff, SIGNAL(valueChanged(double)), this, SLOT(slotDsbChanged(double)));
   connect(this->ui->dsbDiffCoeff, SIGNAL(valueChanged(double)), this, SLOT(slotDsbChanged(double)));
@@ -231,7 +237,7 @@ void Phonger::slotAddSupport()
 
   vtkSmartPointer<vtkTransform> transform =
       vtkSmartPointer<vtkTransform>::New();
-  transform->Scale(5, 1, 1);
+  transform->Scale(5, 2, 2);
 
   vtkSmartPointer<vtkTransformFilter> transformFilter =
       vtkSmartPointer<vtkTransformFilter>::New();
@@ -246,18 +252,28 @@ void Phonger::slotAddSupport()
 
   actor->SetMapper(mapper);
 
+  // Populate mappers and actors with newly created for the support
   m_mappers.push_back(mapper);
   m_actors.push_back(actor);
-  
+
+  // Add data to the supports list in GUI and remember its index for identifying
+  // correct actor/mapper in future
   QString support_name("Support ");
-  support_name.append(QString::number(m_actors.size()));
+  int support_number = m_actors.size();
+  support_name.append(QString::number(support_number));
+
+  m_SupportNamesIndices[support_name] =
+      support_number - 1;  // Corresponds to the actual index in vector
+
   this->ui->SupportsList->addItem(support_name);
 
-  _renderer = vtkSmartPointer<vtkRenderer>::New();
+  if (_renderer == nullptr){
+	  _renderer = vtkSmartPointer<vtkRenderer>::New();
+  }
   _renderer->GradientBackgroundOn();
   _renderer->SetBackground(GRADIENT_BACKGROUND_TOP[0], GRADIENT_BACKGROUND_TOP[1], GRADIENT_BACKGROUND_TOP[2]);
   _renderer->SetBackground2(GRADIENT_BACKGROUND_BOT[0], GRADIENT_BACKGROUND_BOT[1], GRADIENT_BACKGROUND_BOT[2]);
-  _renderer->GetActiveCamera()->ParallelProjectionOn();
+  _renderer->GetActiveCamera()->ParallelProjectionOff();
 
   // Transparency support
   vtkRenderWindow *renderWindow = this->ui->qvtkWidget->GetRenderWindow();
@@ -272,50 +288,97 @@ void Phonger::slotAddSupport()
   this->ui->qvtkWidget->GetRenderWindow()->RemoveRenderer(_renderer);
   this->ui->qvtkWidget->GetRenderWindow()->AddRenderer(_renderer);
 
-  update3d();
-
-  for (auto a : m_actors)
-  {
-	  _renderer->RemoveActor(a);
-	  _renderer->AddActor(a);
+  for (auto a : m_actors) {
+    _renderer->RemoveActor(a);
+    _renderer->AddActor(a);
   }
-  
+
   _renderer->ResetCameraClippingRange();
-  _renderer->ResetCamera();
-  
+  //_renderer->
+  ui->qvtkWidget->update();
+  //_renderer->ResetCamera();
 }
 
 void Phonger::slotSaveSupport()
 {
+	QListWidget * list = this->ui->SupportsList;
+	auto current_item = list->currentItem();
+	if (current_item == nullptr)
+	{
+		QMessageBox msg_box;
+		msg_box.setText("No Support is selected.");
+		msg_box.setInformativeText(R"(Please select a support from the list or use "Add Support" button to create one and then select it.)");
+		msg_box.exec();
+		return;
+	}
+	int current_item_index = m_SupportNamesIndices[current_item->text()];
+
+	auto stl_writer = vtkSmartPointer<vtkSTLWriter>::New();
+	stl_writer->SetFileName(current_item->text().toStdString().c_str());
+	//stl_writer->SetInputConnection(m_mappers[])
 
 }
 
 void WidgetCallback::Execute(vtkObject *caller, unsigned long, void*)
 {
-	vtkSmartPointer<vtkTransform> t =
+	auto t =
 		vtkSmartPointer<vtkTransform>::New();
-	vtkBoxWidget *widget = reinterpret_cast<vtkBoxWidget*>(caller);
+	auto widget = static_cast<vtkBoxWidget*>(caller);
 	widget->GetTransform(t);
 	widget->GetProp3D()->SetUserTransform(t);
 }
 
 void Phonger::slotCurrentSupportChanged(QListWidgetItem * current, QListWidgetItem * previous)
 {
-	//this->ui->SupportsList->
-	//
-	//vtkSmartPointer<vtkRenderWindowInteractor> iren = this->ui->qvtkWidget->GetInteractor();
-	//	
-	//vtkSmartPointer<vtkBoxWidget> m_boxWidget =
-	//	vtkSmartPointer<vtkBoxWidget>::New();
-	//m_boxWidget->SetInteractor(iren);
-	//m_boxWidget->SetPlaceFactor(1.25);
+  int curr_support_index = m_SupportNamesIndices[current->text()];
 
+  // Disable (hide) previously active widget is there was one
+  if (previous != nullptr)
+  {
+	  int prev_support_index = m_SupportNamesIndices[previous->text()];
+	  auto prev_widget = m_widgets.at(prev_support_index);
+	  prev_widget->Off();
+  }
 
-	//m_boxWidget->SetProp3D(coneActor);
-	//m_boxWidget->PlaceWidget();
-	//vtkSmartPointer<vtkMyCallback> callback =
-	//	vtkSmartPointer<vtkMyCallback>::New();
-	//boxWidget->AddObserver(vtkCommand::InteractionEvent, callback);
+  vtkSmartPointer<vtkBoxWidget> widget = nullptr;
 
-	//boxWidget->On();
+  if (m_widgets.count(curr_support_index) ==
+      0)  // Check if a widget for current support has been created already
+  {
+    // If not, create a new widget
+	  widget = vtkSmartPointer<vtkBoxWidget>::New();
+	  m_widgets[curr_support_index] = widget;
+	  
+    // And set it up
+    auto iren = this->ui->qvtkWidget->GetInteractor();
+	widget->SetInteractor(iren);
+	widget->SetPlaceFactor(1.25);
+	widget->SetProp3D(m_actors[curr_support_index]);
+
+	widget->PlaceWidget();
+    auto callback = vtkSmartPointer<WidgetCallback>::New();
+    widget->AddObserver(vtkCommand::InteractionEvent, callback);
+  }
+  else // Widget already exists
+  {
+	  widget = m_widgets[curr_support_index];
+  }
+
+ // if (m_boxWidget != nullptr) {
+	//m_boxWidget->Off();
+	//m_boxWidget->RemoveAllObservers();
+	//m_boxWidget->SetProp3D(nullptr);
+ //   m_boxWidget = nullptr;
+	//this->ui->qvtkWidget->update();
+ // }
+
+ // m_boxWidget = vtkSmartPointer<vtkBoxWidget>::New();
+   
+
+  widget->On();
+  //iren->Initialize();
+
+  _renderer->ResetCameraClippingRange();
+  this->ui->qvtkWidget->update();
+  //iren->Start();
 }

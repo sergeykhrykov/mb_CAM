@@ -140,7 +140,7 @@ message (STATUS "--------------------------------")
 set (CMAKE_PREFIX_PATH "${VTK_PATH};${CMAKE_PREFIX_PATH}")
 message (STATUS "Looking for VTK at: ${VTK_PATH}")
 
-set (VTK_MODULES vtkGUISupportQt vtkFiltersModeling vtkIOGeometry)
+set (VTK_MODULES vtkGUISupportQt vtkFiltersModeling vtkIOGeometry vtkInteractionWidgets)
 
 if(${OpenGL_VERSION} STREQUAL "OpenGL")
 	list (APPEND VTK_MODULES vtkRenderingOpenGL)
