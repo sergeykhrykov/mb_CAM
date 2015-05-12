@@ -55,7 +55,7 @@
             <string>Open Model...</string>
            </property>
           </widget>
-          <widget class="QPushButton" name="pushButton">
+          <widget class="QPushButton" name="OpenFrameButton">
            <property name="geometry">
             <rect>
              <x>12</x>
@@ -208,7 +208,7 @@
            <item>
             <widget class="QPushButton" name="SaveSupportButton">
              <property name="text">
-              <string>Save Support...</string>
+              <string>Save Support</string>
              </property>
             </widget>
            </item>

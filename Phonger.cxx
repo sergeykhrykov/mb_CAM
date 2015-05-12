@@ -23,13 +23,13 @@ static double const GRADIENT_BACKGROUND_BOT[3] = { 0.6, 0.6, 0.6 };
 
  
 Phonger::Phonger()
-: _stlReader(vtkSmartPointer<vtkSTLReader>::New()),
+: _lastOpenedPath (R"(C:\Users\1\SkyDrive\bmstu\medical\_Models\2015.05_Pegashev\Fixtures)"),
+  _stlReader(vtkSmartPointer<vtkSTLReader>::New()),
+  _mapper(vtkSmartPointer<vtkPolyDataMapper>::New()),
   _normals(vtkSmartPointer<vtkPolyDataNormals>::New()),
   _subdiv(vtkSmartPointer<vtkLinearSubdivisionFilter>::New()),
-  _mapper(vtkSmartPointer<vtkPolyDataMapper>::New()),
   _actor(vtkSmartPointer<vtkActor>::New()),
-  _renderer(vtkSmartPointer<vtkRenderer>::New()),
-  _lastOpenedPath (R"(C:\Users\1\SkyDrive\bmstu\medical\_Models\2015.05_Pegashev\Fixtures)")
+  _renderer(vtkSmartPointer<vtkRenderer>::New())
 {
   this->ui = new Ui_Phonger;
   this->ui->setupUi(this);
@@ -42,6 +42,7 @@ Phonger::Phonger()
 
   connect(this->ui->AddSupportButton, SIGNAL(clicked()), this, SLOT(slotAddSupport()));
   connect(this->ui->SaveSupportButton, SIGNAL(clicked()), this, SLOT(slotSaveSupport()));
+  connect(this->ui->OpenFrameButton, SIGNAL(clicked()), this, SLOT(slotOpenFrame()));
 
   connect(
       this->ui->SupportsList,
@@ -217,37 +218,23 @@ void Phonger::pickColor(double const *curColor, QString const &descr, double *ne
   newColor[2] = pickedColor.blueF();
 }
 
+void Phonger::slotDsbChanged(double newPower) { gui2Prop(); }
 
-void Phonger::slotDsbChanged(double newPower)
-{
-  gui2Prop();
-}
+void Phonger::slotExit() { qApp->exit(); }
 
+void Phonger::slotAddSupport() {
+  auto support_source = vtkSmartPointer<vtkCubeSource>::New();
 
-void Phonger::slotExit()
-{
-  qApp->exit();
-}
-
-
-void Phonger::slotAddSupport() 
-{
-  vtkSmartPointer<vtkCubeSource> support_source =
-      vtkSmartPointer<vtkCubeSource>::New();
-
-  vtkSmartPointer<vtkTransform> transform =
-      vtkSmartPointer<vtkTransform>::New();
+  auto transform = vtkSmartPointer<vtkTransform>::New();
   transform->Scale(5, 2, 2);
 
-  vtkSmartPointer<vtkTransformFilter> transformFilter =
-      vtkSmartPointer<vtkTransformFilter>::New();
+  auto transformFilter = vtkSmartPointer<vtkTransformFilter>::New();
   transformFilter->SetInputConnection(support_source->GetOutputPort());
   transformFilter->SetTransform(transform);
 
-  vtkSmartPointer<vtkPolyDataMapper> mapper =
-      vtkSmartPointer<vtkPolyDataMapper>::New();
+  auto mapper = vtkSmartPointer<vtkPolyDataMapper>::New();
   mapper->SetInputConnection(transformFilter->GetOutputPort());
-  vtkSmartPointer<vtkActor> actor = vtkSmartPointer<vtkActor>::New();
+  auto actor = vtkSmartPointer<vtkActor>::New();
   actor->GetProperty()->SetColor(0.8, 0.1, 0.1);
 
   actor->SetMapper(mapper);
@@ -267,12 +254,17 @@ void Phonger::slotAddSupport()
 
   this->ui->SupportsList->addItem(support_name);
 
-  if (_renderer == nullptr){
-	  _renderer = vtkSmartPointer<vtkRenderer>::New();
+  if (_renderer == nullptr) {
+    _renderer = vtkSmartPointer<vtkRenderer>::New();
   }
   _renderer->GradientBackgroundOn();
-  _renderer->SetBackground(GRADIENT_BACKGROUND_TOP[0], GRADIENT_BACKGROUND_TOP[1], GRADIENT_BACKGROUND_TOP[2]);
-  _renderer->SetBackground2(GRADIENT_BACKGROUND_BOT[0], GRADIENT_BACKGROUND_BOT[1], GRADIENT_BACKGROUND_BOT[2]);
+  _renderer->SetBackground(GRADIENT_BACKGROUND_TOP[0],
+                           GRADIENT_BACKGROUND_TOP[1],
+                           GRADIENT_BACKGROUND_TOP[2]);
+  _renderer->SetBackground2(GRADIENT_BACKGROUND_BOT[0],
+                            GRADIENT_BACKGROUND_BOT[1],
+                            GRADIENT_BACKGROUND_BOT[2]);
+
   _renderer->GetActiveCamera()->ParallelProjectionOff();
 
   // Transparency support
@@ -299,33 +291,51 @@ void Phonger::slotAddSupport()
   //_renderer->ResetCamera();
 }
 
-void Phonger::slotSaveSupport()
-{
-	QListWidget * list = this->ui->SupportsList;
-	auto current_item = list->currentItem();
-	if (current_item == nullptr)
-	{
-		QMessageBox msg_box;
-		msg_box.setText("No Support is selected.");
-		msg_box.setInformativeText(R"(Please select a support from the list or use "Add Support" button to create one and then select it.)");
-		msg_box.exec();
-		return;
-	}
-	int current_item_index = m_SupportNamesIndices[current_item->text()];
+void Phonger::slotSaveSupport() {
+  QListWidget *list = this->ui->SupportsList;
+  auto current_item = list->currentItem();
+  if (current_item == nullptr) {
+    QMessageBox msg_box;
+    msg_box.setText("No Support is selected.");
+    msg_box.setInformativeText(
+        R"(Please select a support from the list or use "Add Support" button to create one and then select it.)");
+    msg_box.exec();
+    return;
+  }
+  int current_item_index = m_SupportNamesIndices[current_item->text()];
 
-	auto stl_writer = vtkSmartPointer<vtkSTLWriter>::New();
-	stl_writer->SetFileName(current_item->text().toStdString().c_str());
-	//stl_writer->SetInputConnection(m_mappers[])
+  auto widget = m_widgets.at(current_item_index); 
 
+  auto t = vtkSmartPointer<vtkTransform>::New();
+  widget->GetTransform(t);
+
+  auto mapper = m_mappers.at(current_item_index);
+
+  auto triangle_filter = vtkSmartPointer<vtkTriangleFilter>::New();
+  triangle_filter->SetInputData(mapper->GetInput());
+  triangle_filter->Update();
+
+  auto t_pd_f = vtkSmartPointer<vtkTransformPolyDataFilter>::New();
+  t_pd_f->SetTransform(t);
+  t_pd_f->SetInputData(triangle_filter->GetOutput());
+  t_pd_f->Update();
+  
+  std::string filename = current_item->text().toStdString() + ".stl";
+
+  auto stl_writer = vtkSmartPointer<vtkSTLWriter>::New();  
+  stl_writer->SetFileName(filename.c_str());
+  stl_writer->SetInputData(t_pd_f->GetOutput());
+  stl_writer->Write();
+
+  triangle_filter->RemoveAllInputs();
+  stl_writer->RemoveAllInputs();
 }
 
-void WidgetCallback::Execute(vtkObject *caller, unsigned long, void*)
-{
-	auto t =
-		vtkSmartPointer<vtkTransform>::New();
-	auto widget = static_cast<vtkBoxWidget*>(caller);
-	widget->GetTransform(t);
-	widget->GetProp3D()->SetUserTransform(t);
+void WidgetCallback::Execute(vtkObject *caller, unsigned long, void *) {
+  auto t = vtkSmartPointer<vtkTransform>::New();
+  auto widget = static_cast<vtkBoxWidget *>(caller);
+  widget->GetTransform(t);
+  widget->GetProp3D()->SetUserTransform(t);
 }
 
 void Phonger::slotCurrentSupportChanged(QListWidgetItem * current, QListWidgetItem * previous)
@@ -364,21 +374,83 @@ void Phonger::slotCurrentSupportChanged(QListWidgetItem * current, QListWidgetIt
 	  widget = m_widgets[curr_support_index];
   }
 
- // if (m_boxWidget != nullptr) {
-	//m_boxWidget->Off();
-	//m_boxWidget->RemoveAllObservers();
-	//m_boxWidget->SetProp3D(nullptr);
- //   m_boxWidget = nullptr;
-	//this->ui->qvtkWidget->update();
- // }
-
- // m_boxWidget = vtkSmartPointer<vtkBoxWidget>::New();
-   
-
   widget->On();
-  //iren->Initialize();
 
   _renderer->ResetCameraClippingRange();
   this->ui->qvtkWidget->update();
-  //iren->Start();
+}
+
+void Phonger::slotOpenFrame()
+{
+	QStringList folders;
+	folders.push_back(QStandardPaths::standardLocations(QStandardPaths::DesktopLocation)[0]);
+	folders.push_back(QStandardPaths::standardLocations(QStandardPaths::DocumentsLocation)[0]);
+	folders.push_back(QStandardPaths::standardLocations(QStandardPaths::HomeLocation)[0]);
+
+	QFileDialog fileDialog(this, tr("Choose STL file with Frame"));
+	fileDialog.setAcceptMode(QFileDialog::AcceptOpen);
+	fileDialog.setFileMode(QFileDialog::ExistingFiles);
+	fileDialog.setDirectory(_lastOpenedPath);
+	fileDialog.setHistory(folders);
+	fileDialog.setNameFilters({ tr("STL files (*.stl)") });
+	fileDialog.setViewMode(QFileDialog::Detail);
+	
+	if ( (m_SupportNamesIndices.count("Frame")) > 0 )
+	{
+		QMessageBox msg_box;
+		msg_box.setText("Frame is already loaded. It will be replaced.");		
+		msg_box.exec();
+		auto frame_index = m_SupportNamesIndices["Frame"];
+		m_SupportNamesIndices.remove("Frame");
+		
+		m_actors[frame_index] = nullptr;
+		m_mappers[frame_index] = nullptr;
+		
+		if (m_widgets.count(frame_index) > 0){
+			m_widgets[frame_index] = nullptr;
+		}
+		// Not finished with this
+	}
+
+    if (!fileDialog.exec()) { // No file was chosen
+        return;
+    }
+
+    QString file_path = fileDialog.selectedFiles()[0];
+    _lastOpenedPath = file_path;
+
+	auto stl_reader = vtkSmartPointer<vtkSTLReader>::New();
+	
+	stl_reader->SetFileName(file_path.toLocal8Bit());
+	stl_reader->SetMerging(1);
+	stl_reader->Update();
+	    
+    auto mapper = vtkSmartPointer<vtkPolyDataMapper>::New();
+	mapper->SetInputConnection(stl_reader->GetOutputPort());
+    
+	auto actor = vtkSmartPointer<vtkActor>::New();
+    actor->GetProperty()->SetColor(0.1, 0.8, 0.1);
+	actor->GetProperty()->SetOpacity(.5);
+    actor->SetMapper(mapper);
+
+    // Populate mappers and actors with newly created for the support
+    m_mappers.push_back(mapper);
+    m_actors.push_back(actor);
+
+    // Add data to the supports list in GUI and remember its index for
+    // identifying
+    // correct actor/mapper in future
+    QString support_name("Frame");
+    int support_number = m_actors.size();    
+
+    m_SupportNamesIndices[support_name] =
+        support_number - 1;  // Corresponds to the actual index in vector
+
+    this->ui->SupportsList->addItem(support_name);
+
+	_renderer->RemoveActor(actor);
+	_renderer->AddActor(actor);
+
+    _renderer->ResetCameraClippingRange();
+	_renderer->ResetCamera();
 }

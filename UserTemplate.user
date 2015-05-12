@@ -1,0 +1,25 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="12.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|@VS_3264@'">
+    <LocalDebuggerEnvironment>PATH=@QT_BIN_DIR@;@VTK_BIN_DIR_DEBUG@;%PATH%
+_NO_DEBUG_HEAP=1</LocalDebuggerEnvironment>
+    <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
+    <LocalDebuggerDebuggerType>Mixed</LocalDebuggerDebuggerType>
+    <LocalDebuggerCommandArguments>@DEBUG_RUN_ARGS@</LocalDebuggerCommandArguments>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|@VS_3264@'">
+    <LocalDebuggerEnvironment>PATH=@QT_BIN_DIR@;@VTK_BIN_DIR_RELEASE@;%PATH%
+_NO_DEBUG_HEAP=1</LocalDebuggerEnvironment>
+    <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|@VS_3264@'">
+    <LocalDebuggerEnvironment>PATH=@QT_BIN_DIR@;@VTK_BIN_DIR_RELWITHDEBINFO@;@%PATH%
+_NO_DEBUG_HEAP=1</LocalDebuggerEnvironment>
+    <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|@VS_3264@'">
+    <LocalDebuggerEnvironment>PATH=@QT_BIN_DIR@;@VTK_BIN_DIR_RELEASE@;%PATH%
+_NO_DEBUG_HEAP=1</LocalDebuggerEnvironment>
+    <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
+  </PropertyGroup>
+</Project>

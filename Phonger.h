@@ -22,7 +22,9 @@
 #include <vtkSTLReader.h>
 #include "vtkSTLWriter.h"
 #include "vtkTransform.h"
+#include "vtkTransformPolyDataFilter.h"
 #include "vtkTransformFilter.h"
+#include "vtkTriangleFilter.h"
 
 #include <QMainWindow>
 #include <QMessageBox>
@@ -56,6 +58,8 @@ class Phonger : public QMainWindow {
   void slotAddSupport();
 
   void slotSaveSupport();
+
+  void slotOpenFrame();
 
   void slotCurrentSupportChanged(QListWidgetItem *current,
                                  QListWidgetItem *previous);
